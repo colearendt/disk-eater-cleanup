@@ -1,0 +1,42 @@
+---
+title: "R Notebook"
+output: html_notebook
+params: 
+  guid: "some-guid"
+  keep_hours: 24
+---
+
+```{r}
+if (FALSE) {library(shiny)} # for parameterized rmd
+library(connectapi)
+library(dplyr)
+library(purrr)
+con <- connect()
+
+disk_eater <- content_item(con, params$guid)
+
+all_bundles <- get_bundles(disk_eater)
+```
+
+```{r}
+summarize(
+  all_bundles, 
+  n = n(), total_size = sum(size), avg_size = fs::as_fs_bytes(mean(size)),
+  first = min(created_time), last = max(created_time)
+  )
+
+remove_bundles <- all_bundles %>% 
+  filter(created_time < Sys.time() - lubridate::duration(params$keep_hours, units = "hours"))
+
+remove_bundles %>%
+  summarize(
+    n = n(), total_size = sum(size), first = min(created_time), last = max(created_time)
+  )
+
+remove_bundles
+```
+
+
+```{r}
+purrr::map(remove_bundles$id, ~ message(capture.output(print(delete_bundle(con, .x)))))
+```
